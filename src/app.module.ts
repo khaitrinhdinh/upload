@@ -10,6 +10,7 @@ import { APP_INTERCEPTOR } from '@nestjs/core';
 import { ResponseInterceptor } from './response.interceptor';
 import { SupabaseModule } from './supabase/supabase.module';
 import { SupabaseService } from './supabase/supabase.service';
+import { ConfigModule } from '@nestjs/config';
 @Module({
   controllers: [AppController, FileController],
   providers: [AppService, FileService, FileHandler,
@@ -19,6 +20,11 @@ import { SupabaseService } from './supabase/supabase.service';
     },
     SupabaseService
   ],
-  imports: [CommonModule, FileModule, SupabaseModule],
+  imports: [
+    ConfigModule.forRoot({
+      isGlobal: true,
+    }),
+    CommonModule, FileModule, SupabaseModule
+  ],
 })
 export class AppModule {}

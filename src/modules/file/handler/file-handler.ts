@@ -1,4 +1,5 @@
 import { Injectable, InternalServerErrorException } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { SupabaseService } from '../../../supabase/supabase.service';
 import * as path from 'path';
 import * as Minio from 'minio'
@@ -10,24 +11,44 @@ export class FileHandler {
   private readonly bucketName = 'ttnt';
   private readonly Loader: Loader;
 
-  constructor(private readonly supabaseService: SupabaseService,) {
+  constructor(
+    private readonly supabaseService: SupabaseService,
+    private readonly configService: ConfigService,
+  ) {
     // Khởi tạo S3Client
     this.minioClient = new Minio.Client({
-      endPoint: 'localhost',
-      port: 9000,
-      useSSL: false,
-      accessKey: 'admin',
-      secretKey: 'admin123',
+      endPoint: this.configService.get<string>('MINIO_ENDPOINT') || 'localhost',
+      port: Number(this.configService.get<string>('MINIO_PORT')),
+      useSSL: this.configService.get<string>('MINIO_USE_SSL') === 'true',
+      accessKey: this.configService.get<string>('MINIO_ACCESS_KEY'),
+      secretKey: this.configService.get<string>('MINIO_SECRET_KEY'),
     });
-    this.Loader = new Loader(); 
-
+    this.Loader = new Loader(this.configService); 
+    
   }
 
-  async uploadFile(file: Express.Multer.File, userID: string, conversationID: string): Promise<string> {
+  async getFileById(fileID: string) {
+    try {
+      // Liệt kê tất cả các đối tượng trong bucket
+      const objects = await this.minioClient.listObjectsV2(this.bucketName, '', true);
+
+      for await (const obj of objects) {
+
+        // Lấy thông tin metadata của đối tượng
+        const stat = await this.minioClient.statObject(this.bucketName, obj.name);
+        const contentType = stat.metaData['content-type'] || 'application/octet-stream';
+        const stream = await this.minioClient.getObject(this.bucketName, obj.name);
+        return { stream, contentType, fileName: obj.name };
+      }
+      throw new InternalServerErrorException(`Không tìm thấy tệp với fileID: ${fileID}`);
+    } catch (error) {
+      throw new InternalServerErrorException(`Không thể lấy file: ${error.message}`);
+    }
+  }
+
+  async uploadFile(file: Express.Multer.File, userID: string, sessionID: string): Promise<string> {
     // Kiểm tra lại định dạng tệp hợp lệ
     this.validateFileExtension(file.originalname);
-
-    // Tạo 1 fileID để làm id cho file
 
     // Tạo cấu trúc của Table File
     const fileTable ={
@@ -36,26 +57,24 @@ export class FileHandler {
 
     try {
       // upload file lên postgres
-      console.log('Insert file to postgres:', fileTable);
       const reponse = await this.supabaseService.insertData('FILE', fileTable);
-      console.log ('Insert file to postgres:', reponse);
-      const fileID = reponse[0].id; // Lấy id của file vừa insert
+      const fileID = reponse[0].id;
       // Tạo cấu trúc của Table Upload
       const uploadTable = {
         fileID: fileID,
-        conversationID: conversationID,
+        sessionID: sessionID,
         timestamp: new Date(),
       }
 
-      // Tạo metadata theo định dạng: {'userID': 'any', 'conversationID': 'any', 'fileID': 'any', 'createdAt': 'any'}
+      // Tạo metadata theo định dạng: {'userID': 'any', 'sessionID': 'any', 'fileID': 'any', 'createdAt': 'any'}
       const metadata = {
         'fileID': fileID,
         'createdAt': new Date().toISOString(),
         'userID': userID,
-        'sectionID': conversationID,
+        'sectionID': sessionID,
       };
 
-      await this.supabaseService.insertData('UPLOAD', uploadTable);
+      // await this.supabaseService.insertData('UPLOAD', uploadTable);
 
       // Tải tệp lên min.io
       await this.minioClient.putObject(this.bucketName, file.originalname, file.buffer, file.size,metadata);
@@ -64,7 +83,7 @@ export class FileHandler {
       const unstructResponse = await this.Loader.unstructLoader(file);
 
       // Tải unstruct response lên webhook để ghi vào astradb
-      await this.Loader.webhookLoader(unstructResponse, userID, conversationID, fileID);
+      await this.Loader.webhookLoader(unstructResponse, userID, sessionID, fileID);
       return fileID;
     }catch(error){
       throw new InternalServerErrorException('Upload file failed', error);
