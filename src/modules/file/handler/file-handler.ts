@@ -104,12 +104,14 @@ export class FileHandler {
     // xóa file trên min.io
     try {
       // Gọi delete trên supabase để xóa file
-      const deleteResponse = await this.supabaseService.deleteData('FILE', 'id', fileID);
-      console.log ('Delete file from postgres:', deleteResponse);
+      await this.supabaseService.deleteData('FILE', 'id', fileID);
+      await this.supabaseService.deleteData('UPLOAD', 'fileID', fileID);
+      // // xóa file trên astradb
+      await this.Loader.astradbDelete(fileID);
 
-      // const deleteUploadResponse = await this.supabaseService.deleteData('UPLOAD', 'fileID', fileID);
-      // console.log ('Delete upload from postgres:', deleteUploadResponse);
-
+     
+      
+      // xóa file trên min.io
       // Liệt kê tất cả các đối tượng trong bucket
       const objects = await this.minioClient.listObjectsV2(this.bucketName, '', true);
 
@@ -120,13 +122,9 @@ export class FileHandler {
           await this.minioClient.removeObject(this.bucketName, obj.name);
 
           //console tên của file mới xóa
-          console.log(`Đã xóa tệp: ${obj.name}`);
           return ;
         }
       }
-
-      // xóa file trên astradb
-      await this.Loader.astradbDelete(fileID);
 
       throw new InternalServerErrorException(`Không tìm thấy tệp với fileID: ${fileID}`);
     } catch (error) {
