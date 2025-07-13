@@ -4,6 +4,7 @@ import { SupabaseService } from '../../../supabase/supabase.service';
 import * as path from 'path';
 import * as Minio from 'minio'
 import { Loader } from '../loader/loader';
+import { v4 as uuidv4 } from 'uuid';
 
 @Injectable()
 export class FileHandler {
@@ -44,10 +45,12 @@ export class FileHandler {
     } catch (error) {
       throw new InternalServerErrorException(`Không thể lấy file: ${error.message}`);
     }
-  }
+  } 
 
-  async uploadFile(file: Express.Multer.File, userID: string, sessionID: string): Promise<string> {
+  async uploadFile(file: Express.Multer.File, userID: string, spaceID: string): Promise<string> {
     // Kiểm tra lại định dạng tệp hợp lệ
+    // console.log(file);
+    const sessionID = uuidv4().replace(/-/g, '');
     this.validateFileExtension(file.originalname);
 
     // Tạo cấu trúc của Table File
@@ -56,22 +59,24 @@ export class FileHandler {
     }
 
     try {
-      // upload file lên postgres
+      // upload file lên postgres 
       const reponse = await this.supabaseService.insertData('FILE', fileTable);
       const fileID = reponse[0].id;
+
       // Tạo cấu trúc của Table Upload
       const uploadTable = {
         fileID: fileID,
-        sessionID: sessionID,
+        spaceID: spaceID,
         timestamp: new Date(),
       }
 
-      // Tạo metadata theo định dạng: {'userID': 'any', 'sessionID': 'any', 'fileID': 'any', 'createdAt': 'any'}
+      // Tạo metadata theo định dạng: {'userID': 'any', 'spaceID': 'any', 'fileID': 'any', 'createdAt': 'any'}
       const metadata = {
         'fileID': fileID,
         'createdAt': new Date().toISOString(),
         'userID': userID,
-        'sectionID': sessionID,
+        'spaceID': spaceID,
+        'sessionID': sessionID,
       };
 
       // await this.supabaseService.insertData('UPLOAD', uploadTable);
@@ -81,9 +86,9 @@ export class FileHandler {
       
       // Tải tệp lên unstract
       const unstructResponse = await this.Loader.unstructLoader(file);
-
+      console.log(unstructResponse);
       // Tải unstruct response lên webhook để ghi vào astradb
-      await this.Loader.webhookLoader(unstructResponse, userID, sessionID, fileID);
+      await this.Loader.webhookLoader(unstructResponse, userID, spaceID, fileID, sessionID);
       return fileID;
     }catch(error){
       throw new InternalServerErrorException('Upload file failed', error);

@@ -23,9 +23,9 @@ export class FileController {
   uploadFile(
     @UploadedFile() file: Express.Multer.File,
     @Body('userID') userID: string,
-    @Body('sessionID') sessionID: string,
+    @Body('spaceID') spaceID: string,
   ) {
-    return this.fileService.uploadFile(file, userID, sessionID);
+    return this.fileService.uploadFile(file, userID, spaceID);
   }
 
   @Delete(':fileID')

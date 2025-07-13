@@ -11,6 +11,7 @@ import { ResponseInterceptor } from './response.interceptor';
 import { SupabaseModule } from './supabase/supabase.module';
 import { SupabaseService } from './supabase/supabase.service';
 import { ConfigModule } from '@nestjs/config';
+import { PlaygroundModule } from './modules/playground/playground.module';
 @Module({
   controllers: [AppController, FileController],
   providers: [AppService, FileService, FileHandler,
@@ -24,7 +25,7 @@ import { ConfigModule } from '@nestjs/config';
     ConfigModule.forRoot({
       isGlobal: true,
     }),
-    CommonModule, FileModule, SupabaseModule
+    CommonModule, FileModule, SupabaseModule, PlaygroundModule
   ],
 })
 export class AppModule {}

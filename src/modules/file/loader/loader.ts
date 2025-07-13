@@ -36,14 +36,14 @@ export class Loader {
                     { headers }
                 )
             );
-            return response.data.message.result[0].result.output.TNNT;
+            return response.data.message.result[0].result.output.ttnt_1;
         } catch (error) {
             throw new Error(`Không thể tải tệp lên: ${error.message}`);
         }
     }   
 
     //load file lên webhook và trả về json
-    async webhookLoader(file: string, userID: string, conversationID: string, fileID: string) {
+    async webhookLoader(file: string, userID: string, spaceID: string, fileID: string, sessionID: string) {
         const formData = new FormData();
        
         const headers = {
@@ -53,8 +53,9 @@ export class Loader {
         const payload = {
             data: file,
             userID: userID,
-            conversationID: conversationID,
+            spaceID: spaceID,
             fileID: fileID,
+            sessionID: sessionID
         };
         console
         try {
@@ -89,4 +90,4 @@ export class Loader {
     }
     
 
-}
+}   

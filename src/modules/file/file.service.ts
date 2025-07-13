@@ -10,9 +10,9 @@ export class FileService {
     return this.fileHandler.getFileById(fileID);
   }
 
-  async uploadFile(file: Express.Multer.File, userID: string, sessionID: string) {
+  async uploadFile(file: Express.Multer.File, userID: string, spaceID: string) {
     // Logic to process file
-    return this.fileHandler.uploadFile(file, userID, sessionID);
+    return this.fileHandler.uploadFile(file, userID, spaceID);
   }
 
   async deleteFile(fileID: string) {
